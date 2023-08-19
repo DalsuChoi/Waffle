@@ -23,3 +23,10 @@ Waffle optimizes a Waffle index by tuning five configuration knobs while targeti
 - [Waffle](https://github.com/DalsuChoi/Waffle/tree/main/source_codes/Waffle)
 - [Waffle interface](https://github.com/DalsuChoi/Waffle/tree/main/source_codes/Waffle_interface)
 - [Waffle dataset](https://github.com/DalsuChoi/Waffle/tree/main/source_codes/Waffle_dataset)
+
+<hr>
+
+### Licenses
+- The source codes of Waffle are licensed under [MIT license](https://github.com/DalsuChoi/Waffle/blob/main/LICENSE).
+- The logo of Waffle is licensed under [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International license](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+  
