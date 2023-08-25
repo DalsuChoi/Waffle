@@ -10,12 +10,12 @@ Waffle optimizes a Waffle index by tuning five configuration knobs while targeti
 
 ### Publications
 - [Waffle: In-memory Grid Index for Moving Objects with Reinforcement Learning-based Configuration Tuning System](https://www.vldb.org/pvldb/vol15/p2375-chung.pdf), [VLDB 2022](https://vldb.org/2022/) <br>
-- Demonstrating Waffle: A Self-driving Grid Index, [VLDB 2023](https://vldb.org/2023/) <br>
+- [Demonstrating Waffle: A Self-driving Grid Index](https://www.vldb.org/pvldb/vol16/p3954-chung.pdf), [VLDB 2023](https://vldb.org/2023/) <br>
 
 <hr>
 
 ### Demo Video
-{% include youtube.html id="1Qgp_SrJEg8" %}
+{% include youtube.html id="fPvhrP3zOdk" %}
 
 <hr>
 
