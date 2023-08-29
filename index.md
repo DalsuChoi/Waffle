@@ -15,7 +15,7 @@ Waffle optimizes a Waffle index by tuning five configuration knobs while targeti
 <hr>
 
 ### Demo Video
-{% include youtube.html id="fPvhrP3zOdk" %}
+{% include youtube.html id="Iy4E7H15J7U" %}
 
 <hr>
 
