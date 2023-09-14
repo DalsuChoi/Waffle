@@ -26,13 +26,14 @@ make
 - Open the website through the link [1].
 - Set the screen to the target geographical space.
 - Click 'Download data -> Visible area -> CSV'.
+- Or download LA road network dataset from the link: https://1drv.ms/u/s!AnIVNfovuSvYgTVfGZPiNzAuefb9?e=GdfGz4
 
 2. How to Execute
 - Iuput parameters
   - The absolute path to the road dataset
   - The absolute path to the output file
   - The number of episodes
-- For example, "./Waffle_dataset /data/LA.csv /data/LA 100"
+- For example, "./Waffle_dataset /data/OSM2015_LA /data/LA 100"
 
 ### Softwares Used without Modification of Source Codes
 - Eigen
