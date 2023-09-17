@@ -36,7 +36,7 @@ void prepare(std::string file_path, std::ofstream& of_query);
 void initial_insertion(std::ofstream& of_query);
 RealCoord decide_real_position_on_road(int start_idx, int end_idx);
 int decide_next_destination_node(int previous_start_node, int new_start_node);
-void one_episode(std::ofstream& of_query, const int ticks_per_episode);
+void one_episode(std::ofstream& of_query, const int ticks_per_episode, const int episode);
 void random_insertion(uint64_t target_id, std::string& query);
 void insertion_into_center_of_space(uint64_t target_id, std::string& query);
 void random_move_and_scan_queries(const int start_id, const int end_id, const int num_queries, std::ofstream& of_query);
@@ -44,6 +44,7 @@ void scan_query(int start_id, int end_id, std::ofstream& of_query);
 void random_move(int id);
 std::pair<int, int> cal_cell_coord(double lat, double lon);
 void output_insertion_query(const int id, std::ofstream& of_query);
+void output_objects(const int start_id, const int end_id, const int episode, const int tick);
 
 std::random_device rd_D;
 std::mt19937 gen_D(rd_D());
@@ -56,7 +57,7 @@ int main(int argc, char const *argv[]) {
         std::cerr << "1. The absolute path to the road dataset" << std::endl;
         std::cerr << "2. The output file name with the absolute path" << std::endl;
         std::cerr << "3. The number of episodes" << std::endl;
-        return 1;
+        return EXIT_FAILURE;
     }
 
     std::string output_file_path(argv[2]);
@@ -70,14 +71,14 @@ int main(int argc, char const *argv[]) {
     initial_insertion(of_query);
 
     for(int episode=0; episode<total_episode; episode++) {
-        one_episode(of_query, ticks_per_episode);
+        one_episode(of_query, ticks_per_episode, episode);
         std::cout << "Episode: " << episode << std::endl;
         of_query << "EPISODE " << episode << std::endl;
     }
 
     of_query << "TERMINATE" << std::endl;
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 
@@ -191,7 +192,7 @@ void initial_insertion(std::ofstream& of_query) {
     }
 }
 
-void one_episode(std::ofstream& of_query, const int ticks_per_episode) {
+void one_episode(std::ofstream& of_query, const int ticks_per_episode, const int episode) {
     assert(ticks_per_episode % 4 == 0);
     int quarter_ticks = ticks_per_episode / 4;
 
@@ -204,13 +205,16 @@ void one_episode(std::ofstream& of_query, const int ticks_per_episode) {
         if(tick < quarter_ticks) { // Minimum phase
             std::cout << "Minimum phase" << std::endl;
             random_move_and_scan_queries(0, MIN_OBJECT-1, query_per_tick, of_query);
+
+            if (output_objects_to_file) {
+                output_objects(0, MIN_OBJECT - 1, episode, tick);
+            }
         }
-        else if(tick < quarter_ticks*2) { // Growing phase
-            int _tick = tick - quarter_ticks;
-            int start_id = MIN_OBJECT + delta * _tick;
-            int end_id = MIN_OBJECT + delta * (_tick + 1);
-            std::cout << "Object with ID [" << start_id << " ~ " << end_id - 1
-                      << "] is inserted." << std::endl;
+        else if(tick < quarter_ticks * 2) { // Growing phase
+            const int _tick = tick - quarter_ticks;
+            const int start_id = MIN_OBJECT + delta * _tick;
+            const int end_id = MIN_OBJECT + delta * (_tick + 1);
+            std::cout << "Object with ID [" << start_id << " ~ " << end_id - 1 << "] is inserted." << std::endl;
             int num_queries = 0;
             for (int id = start_id; id < end_id; id++) {
                 if(id % range_or_knn_frequency == 0) {
@@ -224,17 +228,24 @@ void one_episode(std::ofstream& of_query, const int ticks_per_episode) {
                 num_queries++;
             }
             random_move_and_scan_queries(0, start_id - 1, query_per_tick-num_queries, of_query);
+
+            if (output_objects_to_file) {
+                output_objects(0, end_id - 1, episode, tick);
+            }
         }
         else if(tick < quarter_ticks*3) { // Maximum phase
             std::cout << "Maximum phase" << std::endl;
             random_move_and_scan_queries(0, MAX_OBJECT-1, query_per_tick, of_query);
+
+            if (output_objects_to_file) {
+                output_objects(0, MAX_OBJECT-1, episode, tick);
+            }
         }
         else { // Shrinking phase
-            int _tick = tick - quarter_ticks*3;
-            int start_id = MAX_OBJECT - delta * (_tick + 1);
-            int end_id = MAX_OBJECT - delta * _tick;
-            std::cout << "Object with ID [" << start_id << " ~ " << end_id - 1 << "] is deleted."
-                      << std::endl;
+            const int _tick = tick - quarter_ticks*3;
+            const int start_id = MAX_OBJECT - delta * (_tick + 1);
+            const int end_id = MAX_OBJECT - delta * _tick;
+            std::cout << "Object with ID [" << start_id << " ~ " << end_id - 1 << "] is deleted." << std::endl;
             int num_queries = 0;
             for (int id = start_id; id < end_id; id++) {
                 if(id % range_or_knn_frequency == 0) {
@@ -247,6 +258,10 @@ void one_episode(std::ofstream& of_query, const int ticks_per_episode) {
                 num_queries++;
             }
             random_move_and_scan_queries(0, start_id - 1, query_per_tick-num_queries, of_query);
+
+            if (output_objects_to_file) {
+                output_objects(0, start_id - 1, episode, tick);
+            }
         }
 
         global_tick++;
@@ -458,4 +473,21 @@ std::pair<int, int> cal_cell_coord(double lat, double lon)
     int cell_lon = std::min((int)((lon - min_lon_D) / (max_lon_D - min_lon_D) * 1000), 999);
 
     return std::make_pair(cell_lat, cell_lon);
+}
+
+// To output objects whose IDs are [start_id, end_id] to a file.
+// The file is used to visualize the objects.
+void output_objects(const int start_id, const int end_id, const int episode, const int tick)
+{
+    assert(path_to_objects_file == "" || (path_to_objects_file != "" && path_to_objects_file.back() == '/'));
+
+    std::ofstream f(path_to_objects_file + "Objects_Episode" + std::to_string(episode) + "_Tick" + std::to_string(tick));
+    for (int id = start_id; id <= end_id; id++)
+    {
+        std::ostringstream ss;
+        ss << std::setprecision(precision);
+        ss << objects[id].current.lat << "," << objects[id].current.lon;
+        f << ss.str() << std::endl;
+    }
+    f.close();
 }

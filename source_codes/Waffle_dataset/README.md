@@ -35,6 +35,11 @@ make
   - The number of episodes
 - For example, "./Waffle_dataset /data/OSM2015_LA /data/LA 100"
 
+### How to Visualize Objects
+1. Set 'output_objects_to_file' to true and 'path_to_objects_file' in 'parameters.h'.
+2. Build and execute based on the above steps.
+3. For each object file (e.g., Objects_Episode0_Tick1), run 'python visualizeObjects.py path/Objects_Episode0_Tick1'. A png file will be generated at the same directory as that of the object file.
+
 ### Softwares Used without Modification of Source Codes
 - Eigen
 
