@@ -6,7 +6,7 @@ set(HEADER_FILES
         Parameters.h
         LockManager.h
         RegridManager.h
-        GridIndexManager.h
+        WaffleIndexManager.h
         utils.h
         TransactionManager.h
         json.hpp)
@@ -16,7 +16,7 @@ set(SOURCE_FILES
         Waffle.cpp
         LockManager.cpp
         RegridManager.cpp
-        GridIndexManager.cpp
+        WaffleIndexManager.cpp
         TransactionManager.cpp)
 
 add_library(include STATIC ${SOURCE_FILES} ${HEADER_FILES})

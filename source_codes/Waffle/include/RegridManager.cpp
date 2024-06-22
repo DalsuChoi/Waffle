@@ -1,9 +1,9 @@
 #include "RegridManager.h"
-#include "GridIndexManager.h"
+#include "WaffleIndexManager.h"
 #include "TransactionManager.h"
 #include "Waffle.h"
 
-RegridManager::RegridManager(GridIndexManager *&original_index, GridIndexManager *&new_index)
+RegridManager::RegridManager(WaffleIndexManager *&original_index, WaffleIndexManager *&new_index)
     : original_index(original_index), new_index(new_index)
 {
 }
@@ -61,17 +61,17 @@ void RegridManager::operator()()
     lock2.unlock();
     lock.unlock();
 
-    new_index = new GridIndexManager(new_nCell_chunk_lat, new_nCell_chunk_lon, new_nCell_space_lat, new_nCell_space_lon,
-                                     new_MOPC, NEW_INDEX, Waffle::num_total_objects);
+    new_index = new WaffleIndexManager(new_nCell_space_lat, new_nCell_space_lon, new_MOPC, new_nCell_chunk_lat, new_nCell_chunk_lon,
+                                        NEW_INDEX, Waffle::num_total_objects);
 
-    new_index->set_internal_parameters(original_index->getOMinLat(), original_index->getOMinLon(),
-                                       original_index->getOMaxLat(), original_index->getOMaxLon());
+    new_index->set_internal_parameters(original_index->get_min_lat(), original_index->get_min_lon(),
+                                       original_index->get_max_lat(), original_index->get_max_lon());
 
     Waffle::set_during_regrid(true);
     Waffle::set_prepare_regrid(false);
     Waffle::regrid_CV.notify_all();
 
-    auto total_chunks = original_index->total_chunks;
+    auto chunks = original_index->chunks;
     int old_MOPC = original_index->get_MOPC();
     int old_nCell_chunk_lat = original_index->get_nCell_chunk_lat();
     int old_nCell_chunk_lon = original_index->get_nCell_chunk_lon();
@@ -92,7 +92,7 @@ void RegridManager::operator()()
             {
                 Transaction transfer(original_index, new_index);
                 transfer.getXLock(ORIGINAL_INDEX, old_chunk_ID);
-                Chunk *&chunk_start = total_chunks[cp_start];
+                Chunk *&chunk_start = chunks[cp_start];
 
                 if (chunk_start == nullptr)
                 {
@@ -110,7 +110,7 @@ void RegridManager::operator()()
                 auto objects = chunk_start->get_objects();
                 Object object = objects[start];
 
-                ID_TYPE object_id = object.get_ID();
+                IDType object_id = object.get_ID();
 
                 Waffle::regrid_object = object_id;
                 if (Waffle::client_object == Waffle::regrid_object)

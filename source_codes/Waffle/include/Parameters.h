@@ -10,7 +10,7 @@
 
 #define NUM_WAFFLE_KNOBS 5
 
-// Knob range
+// Minimum and maximum values of each knob
 static int MIN_nCell_space_lat = 100;
 static int MAX_nCell_space_lat = 2000;
 static int MIN_nCell_space_lon = 100;
@@ -59,8 +59,8 @@ const double SMALL_NUMBER = std::pow(10, -6);
 #define EXCLUSIVE_LOCK true
 #define SHARED_LOCK false
 
-typedef int ID_TYPE;
-typedef std::pair<int, int> CELL_COORD;
+typedef int IDType;
+typedef std::pair<int, int> cellCoordinate;
 typedef unsigned long long uint64;
 
 #endif

@@ -3,8 +3,8 @@
 
 Model::Model()
 {
-    assert(nCell_state_lat % 2 == 0);
-    assert(nCell_state_lon % 2 == 0);
+    assert(WaffleMaker::state.nCell_state_lat % 2 == 0);
+    assert(WaffleMaker::state.nCell_state_lon % 2 == 0);
 
     network_initialization();
     weight_initialization();
@@ -89,8 +89,8 @@ void Model::weight_initialization()
 
 void Model::network_initialization()
 {
-    int height = nCell_state_lat;
-    int width = nCell_state_lon;
+    int height = WaffleMaker::state.nCell_state_lat;
+    int width = WaffleMaker::state.nCell_state_lon;
     for (int i = 0; i < conv_layers; i++)
     {
         Conv2d.emplace_back(torch::nn::Conv2dOptions(cnn_channel[i], cnn_channel[i + 1], cnn_kernel[i])

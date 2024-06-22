@@ -2,7 +2,7 @@
 #define WAFFLE_H
 
 #include "Chunk.h"
-#include "GridIndexManager.h"
+#include "WaffleIndexManager.h"
 #include "Parameters.h"
 #include "TransactionManager.h"
 #include "interface/InterfaceService.h"
@@ -43,9 +43,6 @@ class Waffle
     static uint64 WaffleMaker_knn_time;
     static uint64 WaffleMaker_knn_num;
 
-    static float *current_state;
-    static double state_cell_size_lat;
-    static double state_cell_size_lon;
     static std::atomic_bool WaffleMaker_writing_new_knob_setting;
     static std::atomic_bool WaffleMaker_wait_for_reward;
 
@@ -146,8 +143,8 @@ class Waffle
     static std::chrono::time_point<std::chrono::high_resolution_clock> regrid_finish_time;
 
   private:
-    GridIndexManager *original_index;
-    GridIndexManager *new_index;
+    WaffleIndexManager *original_index;
+    WaffleIndexManager *new_index;
 
     TransactionManager transaction_manager;
 
@@ -174,11 +171,6 @@ class Waffle
 
     std::atomic<uint64> current_episode;
 
-    double entire_min_lon;
-    double entire_min_lat;
-    double entire_max_lon;
-    double entire_max_lat;
-
     void split_line(std::string &one_line, std::vector<std::string> &split, char delimiter);
 
     void start_regrid();
@@ -195,7 +187,7 @@ class Waffle
     double get_deletion_reward(uint64 total_delete_time, uint64 num_delete);
     double get_range_reward(uint64 total_range_time, uint64 num_range);
     double get_knn_reward(uint64 total_knn_time, uint64 num_knn);
-    double get_memory_reward(uint64 num_chunks, uint64 mChunk);
+    double get_memory_reward(uint64 num_chunks, uint64 memory_one_chunk);
 
     double min_insertion_reward;
     double max_insertion_reward;
@@ -213,7 +205,7 @@ class Waffle
 
     void insert_random_experiences(WaffleMaker *wm, std::vector<TemporaryExperience> &random_experiences);
 
-    double get_estimated_memory_usage(const uint64 num_chunks, const uint64 mChunk);
+    double get_estimated_memory_usage(const uint64 num_chunks, const uint64 memory_one_chunk);
     void initialize_episode_statistics();
 };
 

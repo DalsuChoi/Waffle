@@ -1,9 +1,12 @@
 #include "WaffleMaker.h"
 #include <Waffle.h>
 
+WaffleMaker::State WaffleMaker::state;
+
 WaffleMaker::WaffleMaker(double lr)
     : weight_decay(ADAM_WEIGHT_DECAY), per(MAX_MEMORY_SIZE, SMALL_NUMBER, PER_ALPHA, 0, 0)
 {
+    WaffleMaker::state.initialize(nCell_state_lat, nCell_state_lon);
     initialize_model(lr);
 }
 
@@ -22,7 +25,7 @@ double WaffleMaker::update_model(int batch_size)
         return -1;
     }
 
-    auto state_batch = torch::empty({batch_size, 1, nCell_state_lat, nCell_state_lon});
+    auto state_batch = torch::empty({batch_size, 1, WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     auto action_batch = torch::empty({batch_size, 1, NUM_WAFFLE_KNOBS});
     auto reward_batch = torch::empty({batch_size, 1});
     float ws[Waffle::batch_size];
@@ -87,7 +90,7 @@ torch::Tensor WaffleMaker::get_priority(int batch_size, torch::Tensor state, tor
     action = action.to(torch::kCUDA);
     reward = reward.to(torch::kCUDA);
 
-    state = state.reshape({batch_size, 1, nCell_state_lat, nCell_state_lon});
+    state = state.reshape({batch_size, 1, WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     action = action.reshape({batch_size, 1, NUM_WAFFLE_KNOBS});
     reward = reward.reshape({batch_size, 1});
 
@@ -106,7 +109,7 @@ torch::Tensor WaffleMaker::get_priority(int batch_size, torch::Tensor state, tor
 
 torch::Tensor WaffleMaker::exploitation(torch::Tensor state)
 {
-    auto state_batch = torch::empty({Waffle::recent, 1, nCell_state_lat, nCell_state_lon});
+    auto state_batch = torch::empty({Waffle::recent, 1, WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     torch::Tensor action_batch = (torch::empty({Waffle::recent, 1, NUM_WAFFLE_KNOBS}) * 2) - 1;
     for (int i = 0; i < Waffle::recent; i++)
     {
@@ -136,7 +139,7 @@ torch::Tensor WaffleMaker::exploitation(torch::Tensor state)
 
 torch::Tensor WaffleMaker::exploration(torch::Tensor state, int batch_size, const double top)
 {
-    auto state_batch = torch::empty({batch_size, 1, nCell_state_lat, nCell_state_lon});
+    auto state_batch = torch::empty({batch_size, 1, WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     torch::Tensor action_batch = (torch::rand({batch_size, 1, NUM_WAFFLE_KNOBS}) * 2) - 1;
     for (int i = 0; i < batch_size; i++)
     {
@@ -172,7 +175,7 @@ double WaffleMaker::get_reward(torch::Tensor state, torch::Tensor action)
     state = state.to(torch::kCUDA);
     action = action.to(torch::kCUDA);
 
-    state = state.reshape({1, 1, nCell_state_lat, nCell_state_lon});
+    state = state.reshape({1, 1, WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     action = action.reshape({1, 1, NUM_WAFFLE_KNOBS});
 
     torch::Tensor reward;
@@ -196,4 +199,34 @@ void WaffleMaker::initialize_model(double _lr)
     model_optimizer = std::make_shared<torch::optim::Adam>(
         torch::optim::Adam(model->parameters(), torch::optim::AdamOptions().lr(lr).weight_decay(weight_decay)));
     model->to(torch::kCUDA);
+}
+
+WaffleMaker::State::~State()
+{
+    delete[] grid;
+}
+
+void WaffleMaker::State::initialize(const int nCell_state_lat, const int nCell_state_lon)
+{
+    this->nCell_state_lat = nCell_state_lat;
+    this->nCell_state_lon = nCell_state_lon;
+    grid = new float[nCell_state_lat * nCell_state_lon];
+    std::fill_n(grid, nCell_state_lat * nCell_state_lon, 0);
+}
+
+void WaffleMaker::State::calculate_state_cell_size(const double min_lon, const double min_lat, const double max_lon, const double max_lat)
+{
+    state_cell_size_lat = (max_lat - min_lat) / nCell_state_lat;
+    state_cell_size_lon = (max_lon - min_lon) / nCell_state_lon;
+}
+
+void WaffleMaker::State::update_grid(double object_lat, double object_lon, double min_lat, double min_lon, bool increase)
+{
+    int state_lat = static_cast<int>(std::floor((object_lat - min_lat) / state_cell_size_lat));
+    int state_lon = static_cast<int>(std::floor((object_lon - min_lon) / state_cell_size_lon));
+    if (increase) {
+        grid[state_lat * nCell_state_lon + state_lon]++;
+    } else {
+        grid[state_lat * nCell_state_lon + state_lon]--;
+    }
 }

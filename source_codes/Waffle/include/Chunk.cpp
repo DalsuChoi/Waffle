@@ -2,19 +2,19 @@
 #include "Waffle.h"
 #include <cassert>
 
-Object::Object(ID_TYPE ID, double lat, double lon)
+Object::Object(IDType ID, double lat, double lon)
 {
     Object::ID = ID;
     Object::lat = lat;
     Object::lon = lon;
 }
 
-ID_TYPE Object::get_ID() const
+IDType Object::get_ID() const
 {
     return ID;
 }
 
-void Object::set_ID(ID_TYPE id)
+void Object::set_ID(IDType id)
 {
     ID = id;
 }
@@ -54,7 +54,7 @@ bool Chunk::insertion(int cell_lat_in_chunk, int cell_lon_in_chunk, const Object
     int cellID = cell_lat_in_chunk * nCell_chunk_lon + cell_lon_in_chunk;
     int &_nObjects = num_objects[cellID];
 
-    // no more space to insert the given object.
+    // Not enough space to insert the given object.
     if (_nObjects == MOPC)
     {
         return false;
@@ -81,7 +81,7 @@ bool Chunk::delete_last_object(int cell_ID)
     return (num_total_objects == 0);
 }
 
-std::pair<int, int> Chunk::find_object(int cell_lat_in_chunk, int cell_lon_in_chunk, ID_TYPE object_ID) const
+std::pair<int, int> Chunk::find_object(int cell_lat_in_chunk, int cell_lon_in_chunk, IDType object_ID) const
 {
     int cellID = cell_lat_in_chunk * nCell_chunk_lon + cell_lon_in_chunk;
     const int &_nObjects = num_objects[cellID];
@@ -261,4 +261,9 @@ bool Chunk::is_empty_cell(const int cell_ID)
     {
         return false;
     }
+}
+
+unsigned Chunk::get_memory_usage_of_one_chunk(int nCell_chunk_lat, int nCell_chunk_lon, int MOPC)
+{
+    return sizeof(int) * nCell_chunk_lat * nCell_chunk_lon + (sizeof(Object)) * nCell_chunk_lat * nCell_chunk_lon * MOPC;
 }

@@ -10,7 +10,7 @@
 struct kNN_q_member
 {
 
-    kNN_q_member(double query_lat, double query_lon, double object_lat, double object_lon, ID_TYPE id)
+    kNN_q_member(double query_lat, double query_lon, double object_lat, double object_lon, IDType id)
     {
         type = KNN_Q_MEMBER_OBJECT;
         real_lat = object_lat;
@@ -35,7 +35,7 @@ struct kNN_q_member
 
     double distance;
     int type;
-    ID_TYPE id;
+    IDType id;
     int cell_lat;
     int cell_lon;
     double real_lat;

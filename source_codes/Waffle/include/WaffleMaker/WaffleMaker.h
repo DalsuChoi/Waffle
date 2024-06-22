@@ -23,6 +23,24 @@ public:
     std::deque<torch::Tensor> recent_action;
 
     PER per;
+
+    struct State
+    {
+        float *grid;
+        int nCell_state_lat;
+        int nCell_state_lon;
+
+        // The difference between boundary latitude/longitude values in a single state cell
+        double state_cell_size_lat;
+        double state_cell_size_lon;
+
+        ~State();
+        void initialize(const int nCell_state_lat, const int nCell_state_lon);
+        void calculate_state_cell_size(const double min_lon, const double min_lat, const double max_lon, const double max_lat);
+        void update_grid(double object_lat, double object_lon, double min_lat, double min_lon, bool increase);
+    };
+    static State state;
+
 private:
     double lr;
     const double weight_decay;

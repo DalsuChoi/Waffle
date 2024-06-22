@@ -26,9 +26,6 @@ uint64 Waffle::WaffleMaker_range_num;
 uint64 Waffle::WaffleMaker_knn_time;
 uint64 Waffle::WaffleMaker_knn_num;
 
-float *Waffle::current_state;
-double Waffle::state_cell_size_lat;
-double Waffle::state_cell_size_lon;
 std::atomic_bool Waffle::WaffleMaker_writing_new_knob_setting;
 std::atomic_bool Waffle::WaffleMaker_wait_for_reward;
 std::atomic_int Waffle::num_running_query;
@@ -172,8 +169,6 @@ Waffle::Waffle(std::string _query_file_path, uint64_t _num_total_objects)
 
     initialize_episode_statistics();
 
-    current_state = new float[nCell_state_lat * nCell_state_lon];
-    std::fill_n(current_state, nCell_state_lat * nCell_state_lon, 0);
     WaffleMaker_thread = std::thread{&Waffle::WaffleMaker_main, this};
 
     std::unique_lock<std::mutex> lock(Waffle::WaffleMaker_Mutex);
@@ -182,9 +177,9 @@ Waffle::Waffle(std::string _query_file_path, uint64_t _num_total_objects)
         Waffle::WaffleMaker_CV.wait(lock);
     }
 
-    original_index = new GridIndexManager(Waffle::WaffleMaker_nCell_chunk_lat, Waffle::WaffleMaker_nCell_chunk_lon,
-                                          Waffle::WaffleMaker_nCell_space_lat, Waffle::WaffleMaker_nCell_space_lon,
-                                          Waffle::WaffleMaker_MOPC, ORIGINAL_INDEX, Waffle::num_total_objects);
+    original_index = new WaffleIndexManager(Waffle::WaffleMaker_nCell_space_lat, Waffle::WaffleMaker_nCell_space_lon,
+                                          Waffle::WaffleMaker_MOPC, Waffle::WaffleMaker_nCell_chunk_lat, Waffle::WaffleMaker_nCell_chunk_lon,
+                                          ORIGINAL_INDEX, Waffle::num_total_objects);
     Waffle::WaffleMaker_writing_new_knob_setting = true;
 
     new_index = nullptr;
@@ -349,7 +344,7 @@ void Waffle::client()
             Waffle::WaffleMaker_CV.notify_all();
 
             query_file.close();
-            
+
             break;
         }
         case QUERYTYPE_INSERTION: {
@@ -368,8 +363,7 @@ void Waffle::client()
             double n_lon = std::stod(split_query[2]);
             double n_lat = std::stod(split_query[3]);
 
-            transaction_manager.process_insertion_query(object_ID, n_lat, n_lon, original_index, new_index,
-                                                        Waffle::during_regrid);
+            transaction_manager.process_insertion_query(object_ID, n_lat, n_lon, original_index, new_index,Waffle::during_regrid);
 
             if (during_regrid)
             {
@@ -405,7 +399,7 @@ void Waffle::client()
             double end_lon = std::stod(split_query[3]);
             double end_lat = std::stod(split_query[4]);
 
-            std::vector<ID_TYPE> result;
+            std::vector<IDType> result;
             transaction_manager.process_range_query(start_lon, start_lat, end_lon, end_lat, result, original_index,
                                                     new_index, Waffle::during_regrid);
             break;
@@ -422,21 +416,23 @@ void Waffle::client()
             double center_lat = (start_lat + end_lat) / 2;
             double center_lon = (start_lon + end_lon) / 2;
 
-            std::vector<ID_TYPE> result;
+            std::vector<IDType> result;
             transaction_manager.process_knn_query(k, start_lon, start_lat, end_lon, end_lat, center_lat, center_lon,
                                                   result, original_index, new_index, during_regrid);
             break;
         }
         case QUERYTYPE_SETSPACE: {
-            entire_min_lon = std::stod(split_query[1]);
-            entire_min_lat = std::stod(split_query[2]);
-            entire_max_lon = std::stod(split_query[3]);
-            entire_max_lat = std::stod(split_query[4]);
+            const double min_lon = std::stod(split_query[1]);
+            const double min_lat = std::stod(split_query[2]);
+            const double max_lon = std::stod(split_query[3]);
+            const double max_lat = std::stod(split_query[4]);
 
-            std::cout << "A geographical space: ([" << entire_min_lat << "," << entire_max_lat << "), "
-                      << "[" << entire_min_lon << "," << entire_max_lon << "))" << std::endl;
+            std::cout << "A geographical space: ([" << min_lat << "," << max_lat << "), "
+                      << "[" << min_lon << "," << max_lon << "))" << std::endl;
 
-            original_index->set_internal_parameters(entire_min_lat, entire_min_lon, entire_max_lat, entire_max_lon);
+            WaffleMaker::state.calculate_state_cell_size(min_lon, min_lat, max_lon, max_lat);
+
+            original_index->set_internal_parameters(min_lat, min_lon, max_lat, max_lon);
             break;
         }
         default: {
@@ -454,10 +450,10 @@ void Waffle::client()
 
         if (Waffle::total_processed_query % 100000 == 0)
         {
-            episode_memory_usage += get_estimated_memory_usage(original_index->num_chunks, original_index->mChunk);
+            episode_memory_usage += get_estimated_memory_usage(original_index->num_chunks, original_index->memory_one_chunk);
             if (during_regrid)
             {
-                episode_memory_usage += get_estimated_memory_usage(new_index->num_chunks, new_index->mChunk);
+                episode_memory_usage += get_estimated_memory_usage(new_index->num_chunks, new_index->memory_one_chunk);
             }
             episode_memory_count++;
         }
@@ -488,7 +484,7 @@ void Waffle::WaffleMaker_main()
 {
     WaffleMaker *wm = new WaffleMaker(Waffle::lr);
 
-    torch::Tensor next_state = torch::from_blob(Waffle::current_state, {nCell_state_lat, nCell_state_lon});
+    torch::Tensor next_state = torch::from_blob(WaffleMaker::state.grid, {WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon});
     torch::Tensor state = next_state.clone().detach();
 
     double final_reward = DOUBLE_MAX;
@@ -589,13 +585,12 @@ void Waffle::WaffleMaker_main()
 
             if (terminate_Waffle)
             {
-                delete[] current_state;
                 return;
             }
 
             if ((CONVERGE || evaluate) && step >= 2)
             {
-                auto test_state = torch::from_blob(Waffle::current_state, {nCell_state_lat, nCell_state_lon},
+                auto test_state = torch::from_blob(WaffleMaker::state.grid, {WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon},
                                                    torch::TensorOptions().dtype(torch::kFloat32))
                                       .clone()
                                       .detach();
@@ -625,7 +620,7 @@ void Waffle::WaffleMaker_main()
                     double range_reward =
                         get_range_reward(Waffle::WaffleMaker_range_time, Waffle::WaffleMaker_range_num);
                     double knn_reward = get_knn_reward(Waffle::WaffleMaker_knn_time, Waffle::WaffleMaker_knn_num);
-                    double memory_reward = get_memory_reward(original_index->num_chunks, original_index->mChunk);
+                    double memory_reward = get_memory_reward(original_index->num_chunks, original_index->memory_one_chunk);
                     double final_reward = compute_final_reward(insertion_reward, deletion_reward, range_reward,
                                                                knn_reward, memory_reward);
                     update_interface_statistics(final_reward, 0, memory_reward * -1);
@@ -642,7 +637,6 @@ void Waffle::WaffleMaker_main()
         }
         if (terminate_Waffle)
         {
-            delete[] current_state;
             return;
         }
 
@@ -656,7 +650,7 @@ void Waffle::WaffleMaker_main()
                 get_deletion_reward(Waffle::WaffleMaker_delete_time, Waffle::WaffleMaker_delete_num);
             double range_reward = get_range_reward(Waffle::WaffleMaker_range_time, Waffle::WaffleMaker_range_num);
             double knn_reward = get_knn_reward(Waffle::WaffleMaker_knn_time, Waffle::WaffleMaker_knn_num);
-            double memory_reward = get_memory_reward(original_index->num_chunks, original_index->mChunk);
+            double memory_reward = get_memory_reward(original_index->num_chunks, original_index->memory_one_chunk);
 
             if (EXCLUDE_TOO_EARLY_EXPERIENCE < step && step <= random_steps)
             {
@@ -708,15 +702,16 @@ void Waffle::WaffleMaker_main()
         initialize_WaffleMaker_reward_variables();
         Waffle::WaffleMaker_wait_for_reward = true;
 
-        next_state = torch::from_blob(Waffle::current_state, {nCell_state_lat, nCell_state_lon},
+        next_state = torch::from_blob(WaffleMaker::state.grid, {WaffleMaker::state.nCell_state_lat, WaffleMaker::state.nCell_state_lon},
                                       torch::TensorOptions().dtype(torch::kFloat32));
         next_state = next_state.clone().detach();
 
 #if defined(OUTPUT_STATE)
         std::ofstream of_state("state_" + std::to_string(step));
-        for (int i = 0; i < nCell_state * nCell_state; i++)
+        int num_cells = WaffleMaker::state.nCell_state_lat * WaffleMaker::state.nCell_state_lon;
+        for (int i = 0; i < num_cells; i++)
         {
-            of_state << Waffle::current_state[i] << ",";
+            of_state << WaffleMaker::state.grid[i] << ",";
         }
         of_state.close();
 #endif
@@ -816,10 +811,10 @@ double Waffle::get_knn_reward(uint64 total_knn_time, uint64 num_knn)
     return -static_cast<double>(total_knn_time) / ((double)num_knn);
 }
 
-double Waffle::get_memory_reward(const uint64 num_chunks, const uint64 mChunk)
+double Waffle::get_memory_reward(const uint64 num_chunks, const uint64 memory_one_chunk)
 {
     double _num_chunks = num_chunks;
-    double _mChunk = mChunk;
+    double _mChunk = memory_one_chunk;
     _mChunk *= (0.000001);
     double memory_reward = (_num_chunks * _mChunk);
     memory_reward *= -1;
@@ -870,10 +865,10 @@ void Waffle::insert_random_experiences(WaffleMaker *wm, std::vector<TemporaryExp
     }
 }
 
-double Waffle::get_estimated_memory_usage(const uint64 num_chunks, const uint64 mChunk)
+double Waffle::get_estimated_memory_usage(const uint64 num_chunks, const uint64 memory_one_chunk)
 {
     double _num_chunks = num_chunks;
-    double _mChunk = mChunk;
+    double _mChunk = memory_one_chunk;
     _mChunk *= (0.000001);
     return (_num_chunks * _mChunk);
 }

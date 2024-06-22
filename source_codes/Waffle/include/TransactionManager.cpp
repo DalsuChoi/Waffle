@@ -4,7 +4,7 @@
 #include <cassert>
 #include <thread>
 
-Transaction::Transaction(GridIndexManager *&original_index, GridIndexManager *&new_index)
+Transaction::Transaction(WaffleIndexManager *&original_index, WaffleIndexManager *&new_index)
     : original_index(original_index), new_index(new_index)
 {
 }
@@ -42,7 +42,7 @@ bool Transaction::deletion(int which_index, const Object &new_object, bool from_
 }
 
 bool Transaction::range(int which_index, double start_latitude, double start_longitude, double end_latitude,
-                        double end_longitude, std::vector<ID_TYPE> &result)
+                        double end_longitude, std::vector<IDType> &result)
 {
     switch (which_index)
     {
@@ -84,7 +84,7 @@ void Transaction::commit()
     release_locks();
 }
 
-bool Transaction::deletion(int which_index, ID_TYPE ID, int cell_lat, int cell_lon, bool from_regrid)
+bool Transaction::deletion(int which_index, IDType ID, int cell_lat, int cell_lon, bool from_regrid)
 {
     switch (which_index)
     {
@@ -101,7 +101,7 @@ bool Transaction::deletion(int which_index, ID_TYPE ID, int cell_lat, int cell_l
 
 bool Transaction::kNN(const int which_index, const int k, const double query_lat, const double query_lon,
                       const double start_lat, const double start_lon, const double end_lat, const double end_lon,
-                      std::vector<ID_TYPE> &result)
+                      std::vector<IDType> &result)
 {
     switch (which_index)
     {
@@ -136,34 +136,34 @@ void Transaction::getXLock(const int which_index, const int chunk_ID)
     }
 }
 
-bool TransactionManager::process_insertion_query(const ID_TYPE object_ID, const double n_lat, const double n_lon,
-                                                 GridIndexManager *&gridIndexManager,
-                                                 GridIndexManager *&newGridIndexManager, const bool during_regrid)
+bool TransactionManager::process_insertion_query(const IDType object_ID, const double n_lat, const double n_lon,
+                                                 WaffleIndexManager *&original_index, WaffleIndexManager *&new_index,
+                                                 const bool during_regrid)
 {
-    if (gridIndexManager->total_chunks == nullptr)
+    if (original_index->chunks == nullptr)
     {
-        gridIndexManager->set_internal_parameters(n_lat, n_lon, n_lat, n_lon);
+        original_index->set_internal_parameters(n_lat, n_lon, n_lat, n_lon);
     }
 
-    if (gridIndexManager->ID_cell[object_ID].first != INTEGER_MAX)
+    if (original_index->ID_cell[object_ID].first != INTEGER_MAX)
     {
-        const int old_cell_lat = gridIndexManager->ID_cell[object_ID].first;
-        const int old_cell_lon = gridIndexManager->ID_cell[object_ID].second;
+        const int old_cell_lat = original_index->ID_cell[object_ID].first;
+        const int old_cell_lon = original_index->ID_cell[object_ID].second;
 
         Object new_object(object_ID, n_lat, n_lon);
         if (!during_regrid)
         {
-            Transaction tx(gridIndexManager, newGridIndexManager);
-            tx.deletion(ORIGINAL_INDEX, object_ID, old_cell_lat, old_cell_lon);
-            tx.insertion(ORIGINAL_INDEX, new_object);
+            Transaction tx(original_index, new_index);
+            tx.deletion(ORIGINAL_INDEX, object_ID, old_cell_lat, old_cell_lon, false);
+            tx.insertion(ORIGINAL_INDEX, new_object, false);
             tx.commit();
             return true;
         }
         else
         {
-            Transaction tx(gridIndexManager, newGridIndexManager);
-            tx.deletion(ORIGINAL_INDEX, object_ID, old_cell_lat, old_cell_lon);
-            tx.insertion(NEW_INDEX, new_object);
+            Transaction tx(original_index, new_index);
+            tx.deletion(ORIGINAL_INDEX, object_ID, old_cell_lat, old_cell_lon, false);
+            tx.insertion(NEW_INDEX, new_object, false);
             tx.commit();
             return true;
         }
@@ -173,29 +173,29 @@ bool TransactionManager::process_insertion_query(const ID_TYPE object_ID, const 
         if (!during_regrid)
         {
             Waffle::current_object_num++;
-            Transaction tx(gridIndexManager, newGridIndexManager);
-            tx.insertion(ORIGINAL_INDEX, Object(object_ID, n_lat, n_lon));
+            Transaction tx(original_index, new_index);
+            tx.insertion(ORIGINAL_INDEX, Object(object_ID, n_lat, n_lon), false);
             tx.commit();
             return true;
         }
         else
         {
-            if (newGridIndexManager->ID_cell[object_ID].first != INTEGER_MAX)
+            if (new_index->ID_cell[object_ID].first != INTEGER_MAX)
             {
-                int old_cell_lat = newGridIndexManager->ID_cell[object_ID].first;
-                int old_cell_lon = newGridIndexManager->ID_cell[object_ID].second;
+                int old_cell_lat = new_index->ID_cell[object_ID].first;
+                int old_cell_lon = new_index->ID_cell[object_ID].second;
 
-                Transaction tx(gridIndexManager, newGridIndexManager);
-                tx.deletion(NEW_INDEX, object_ID, old_cell_lat, old_cell_lon);
-                tx.insertion(NEW_INDEX, Object(object_ID, n_lat, n_lon));
+                Transaction tx(original_index, new_index);
+                tx.deletion(NEW_INDEX, object_ID, old_cell_lat, old_cell_lon, false);
+                tx.insertion(NEW_INDEX, Object(object_ID, n_lat, n_lon), false);
                 tx.commit();
                 return true;
             }
             else
             {
                 Waffle::current_object_num++;
-                Transaction tx(gridIndexManager, newGridIndexManager);
-                tx.insertion(NEW_INDEX, Object(object_ID, n_lat, n_lon));
+                Transaction tx(original_index, new_index);
+                tx.insertion(NEW_INDEX, Object(object_ID, n_lat, n_lon), false);
                 tx.commit();
                 return true;
             }
@@ -205,30 +205,30 @@ bool TransactionManager::process_insertion_query(const ID_TYPE object_ID, const 
     return true;
 }
 
-bool TransactionManager::process_deletion_query(const ID_TYPE object_ID, GridIndexManager *&gridIndexManager,
-                                                GridIndexManager *&newGridIndexManager, const bool during_regrid)
+bool TransactionManager::process_deletion_query(const IDType object_ID, WaffleIndexManager *&original_index,
+                                                WaffleIndexManager *&new_index, const bool during_regrid)
 {
     Waffle::current_object_num--;
-    if (gridIndexManager->ID_cell[object_ID].first != INTEGER_MAX)
+    if (original_index->ID_cell[object_ID].first != INTEGER_MAX)
     {
-        int cell_lat = gridIndexManager->ID_cell[object_ID].first;
-        int cell_lon = gridIndexManager->ID_cell[object_ID].second;
+        int cell_lat = original_index->ID_cell[object_ID].first;
+        int cell_lon = original_index->ID_cell[object_ID].second;
 
-        Transaction tx(gridIndexManager, newGridIndexManager);
-        tx.deletion(ORIGINAL_INDEX, object_ID, cell_lat, cell_lon);
+        Transaction tx(original_index, new_index);
+        tx.deletion(ORIGINAL_INDEX, object_ID, cell_lat, cell_lon, false);
         tx.commit();
     }
     else
     {
         if (during_regrid)
         {
-            if (newGridIndexManager->ID_cell[object_ID].first != INTEGER_MAX)
+            if (new_index->ID_cell[object_ID].first != INTEGER_MAX)
             {
-                int cell_lat = newGridIndexManager->ID_cell[object_ID].first;
-                int cell_lon = newGridIndexManager->ID_cell[object_ID].second;
+                int cell_lat = new_index->ID_cell[object_ID].first;
+                int cell_lon = new_index->ID_cell[object_ID].second;
 
-                Transaction tx(gridIndexManager, newGridIndexManager);
-                tx.deletion(NEW_INDEX, object_ID, cell_lat, cell_lon);
+                Transaction tx(original_index, new_index);
+                tx.deletion(NEW_INDEX, object_ID, cell_lat, cell_lon, false);
                 tx.commit();
             }
         }
@@ -238,19 +238,19 @@ bool TransactionManager::process_deletion_query(const ID_TYPE object_ID, GridInd
 }
 
 bool TransactionManager::process_range_query(const double start_lon, const double start_lat, const double end_lon,
-                                             const double end_lat, std::vector<ID_TYPE> &result,
-                                             GridIndexManager *&gridIndexManager,
-                                             GridIndexManager *&newGridIndexManager, const bool during_regrid)
+                                             const double end_lat, std::vector<IDType> &result,
+                                             WaffleIndexManager *&original_index,
+                                             WaffleIndexManager *&new_index, const bool during_regrid)
 {
     if (!during_regrid)
     {
-        Transaction tx(gridIndexManager, newGridIndexManager);
+        Transaction tx(original_index, new_index);
         tx.range(ORIGINAL_INDEX, start_lat, start_lon, end_lat, end_lon, result);
         tx.commit();
     }
     else
     {
-        Transaction tx(gridIndexManager, newGridIndexManager);
+        Transaction tx(original_index, new_index);
         tx.range(ORIGINAL_INDEX, start_lat, start_lon, end_lat, end_lon, result);
         tx.range(NEW_INDEX, start_lat, start_lon, end_lat, end_lon, result);
         tx.commit();
@@ -261,20 +261,20 @@ bool TransactionManager::process_range_query(const double start_lon, const doubl
 
 bool TransactionManager::process_knn_query(const int k, const double start_lon, const double start_lat,
                                            const double end_lon, const double end_lat, const double center_lat,
-                                           const double center_lon, std::vector<ID_TYPE> result,
-                                           GridIndexManager *&gridIndexManager, GridIndexManager *&newGridIndexManager,
+                                           const double center_lon, std::vector<IDType> result,
+                                           WaffleIndexManager *&original_index, WaffleIndexManager *&new_index,
                                            const bool during_regrid)
 {
     if (!during_regrid)
     {
-        Transaction tx(gridIndexManager, newGridIndexManager);
+        Transaction tx(original_index, new_index);
 
         tx.kNN(ORIGINAL_INDEX, k, center_lat, center_lon, start_lat, start_lon, end_lat, end_lon, result);
         tx.commit();
     }
     else
     {
-        Transaction tx(gridIndexManager, newGridIndexManager);
+        Transaction tx(original_index, new_index);
         tx.kNN(ORIGINAL_INDEX, k, center_lat, center_lon, start_lat, start_lon, end_lat, end_lon, result);
         tx.kNN(NEW_INDEX, k, center_lat, center_lon, start_lat, start_lon, end_lat, end_lon, result);
         tx.commit();
