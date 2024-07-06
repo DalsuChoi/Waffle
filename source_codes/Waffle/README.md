@@ -4,7 +4,6 @@
 - C++14
 - NVIDIA GPU
 - PyTorch with the PyTorch C++ frontend (libtorch)
-- Intel® oneAPI Threading Building Blocks
 - Restbed
 
 ### Experimental Environments
@@ -20,7 +19,7 @@
 <code>
 mkdir Release
 cd Release
-cmake .. -D CMAKE_PREFIX_PATH="PATH_TO_LIBTORCH;PATH_TO_TBB"
+cmake .. -D CMAKE_PREFIX_PATH="PATH_TO_LIBTORCH"
 make
 </code>
 </pre>
@@ -56,13 +55,11 @@ The predefined system parameters, which are not automatically tuned by Waffle, a
 
 ### Softwares Used without Modification of Source Codes
 - PyTorch [2]
-- Intel® oneAPI Threading Building Blocks [3]
-- Restbed [4]
-- JSON for Modern C++ [5]
+- Restbed [3]
+- JSON for Modern C++ [4]
 
 ### References
 [1] Dalsu Choi, Hyunsik Yoon, Hyubjin Lee, and Yon Dohn Chung. Waffle: In-memory Grid Index for Moving Objects with Reinforcement Learning-based Configuration Tuning System. PVLDB, 15(11): 2375-2388, 2022.<br>
 [2] https://pytorch.org/<br>
-[3] https://github.com/oneapi-src/oneTBB<br>
-[4] https://github.com/Corvusoft/restbed<br>
-[5] https://github.com/nlohmann/json<br>
+[3] https://github.com/Corvusoft/restbed<br>
+[4] https://github.com/nlohmann/json<br>

@@ -11,13 +11,14 @@ WaffleIndexManager::WaffleIndexManager(int _nCell_space_lat, int _nCell_space_lo
       nCell_chunk_lat(_nCell_chunk_lat),
       nCell_chunk_lon(_nCell_chunk_lon),
       role(role),
-      num_total_objects(_num_total_objects),
-      ID_cell(_num_total_objects, {INTEGER_MAX, INTEGER_MAX})
+      num_total_objects(_num_total_objects)
 {
     chunks = nullptr;
     lock_manager = nullptr;
     num_chunks = 0;
     memory_one_chunk = Chunk::get_memory_usage_of_one_chunk(nCell_chunk_lat, nCell_chunk_lon, MOPC);
+    ID_cell = new CellCoordinate[_num_total_objects];
+    std::fill_n(ID_cell, _num_total_objects, std::make_pair(INTEGER_MAX, INTEGER_MAX));
 }
 
 WaffleIndexManager::~WaffleIndexManager()
@@ -41,6 +42,7 @@ WaffleIndexManager::~WaffleIndexManager()
     }
     delete[] chunks;
     delete lock_manager;
+    delete[] ID_cell;
 }
 
 void WaffleIndexManager::set_internal_parameters(double min_lat, double min_lon, double max_lat, double max_lon)
@@ -145,11 +147,10 @@ bool WaffleIndexManager::insertion(const Object &object, std::vector<Lock> &curr
         WaffleMaker::state.update_grid(object_lat, object_lon, min_lat, min_lon, true);
     }
 
+    ID_cell[object.get_ID()] = {cell_lat_in_space, cell_lon_in_space};
+
     auto PHASE_END = std::chrono::high_resolution_clock::now();
     auto query_time = std::chrono::duration_cast<std::chrono::nanoseconds>(PHASE_END - PHASE_START).count();
-
-    // Updating the data structure is excluded from the execution time, which is common to the compared methods.
-    ID_cell[object.get_ID()] = {cell_lat_in_space, cell_lon_in_space};
 
     if (!from_regrid)
     {
@@ -271,11 +272,10 @@ bool WaffleIndexManager::deletion(IDType ID, int cell_lat, int cell_lon, std::ve
         WaffleMaker::state.update_grid(object_lat, object_lon, min_lat, min_lon, false);
     }
 
+    ID_cell[ID] = {INTEGER_MAX, INTEGER_MAX};
+
     auto PHASE_END = std::chrono::high_resolution_clock::now();
     auto query_time = std::chrono::duration_cast<std::chrono::nanoseconds>(PHASE_END - PHASE_START).count();
-
-    // Updating the data structure is excluded from the execution time, which is common to the compared methods.
-    ID_cell[ID] = {INTEGER_MAX, INTEGER_MAX};
 
     if (!from_regrid)
     { // A user query
@@ -846,4 +846,10 @@ bool WaffleIndexManager::is_empty_cell(const int cell_lat, const int cell_lon) c
     }
 
     return false;
+}
+
+CellCoordinate WaffleIndexManager::get_cell_coordinate(IDType ID) const
+{
+    assert(0 <= ID && ID < num_total_objects);
+    return ID_cell[ID];
 }

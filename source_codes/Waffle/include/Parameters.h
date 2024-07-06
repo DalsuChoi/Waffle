@@ -4,7 +4,6 @@
 #include <cmath>
 #include <limits>
 #include <string>
-#include <tbb/concurrent_hash_map.h>
 #include <utility>
 #include <vector>
 
@@ -60,7 +59,7 @@ const double SMALL_NUMBER = std::pow(10, -6);
 #define SHARED_LOCK false
 
 typedef int IDType;
-typedef std::pair<int, int> cellCoordinate;
+typedef std::pair<int, int> CellCoordinate;
 typedef unsigned long long uint64;
 
 #endif

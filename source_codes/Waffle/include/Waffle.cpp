@@ -363,7 +363,7 @@ void Waffle::client()
             double n_lon = std::stod(split_query[2]);
             double n_lat = std::stod(split_query[3]);
 
-            transaction_manager.process_insertion_query(object_ID, n_lat, n_lon, original_index, new_index,Waffle::during_regrid);
+            transaction_manager.process_insertion_query(object_ID, n_lat, n_lon, original_index, new_index, Waffle::during_regrid);
 
             if (during_regrid)
             {

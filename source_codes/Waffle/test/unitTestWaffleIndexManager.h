@@ -85,10 +85,10 @@ TEST_F(UnitTestWaffleIndexManager, WaffleIndexManager)
     EXPECT_EQ(index->nCell_chunk_lat, nCell_chunk_lat);
     EXPECT_EQ(index->nCell_chunk_lon, nCell_chunk_lon);
     EXPECT_EQ(index->role, ORIGINAL_INDEX);
-    EXPECT_EQ(index->ID_cell.size(), num_total_objects);
     for (int i = 0; i < num_total_objects; i++) {
-        EXPECT_EQ(index->ID_cell[i].first, INTEGER_MAX);
-        EXPECT_EQ(index->ID_cell[i].second, INTEGER_MAX);
+        const auto& coordinate = index->get_cell_coordinate(i);
+        EXPECT_EQ(coordinate.first, INTEGER_MAX);
+        EXPECT_EQ(coordinate.second, INTEGER_MAX);
     }
     EXPECT_EQ(index->chunks, nullptr);
     EXPECT_EQ(index->lock_manager, nullptr);
@@ -140,7 +140,8 @@ TEST_F(UnitTestWaffleIndexManager, setInternalParameters)
 TEST_F(UnitTestWaffleIndexManager, insertion)
 {
     WaffleIndexManager* index = initialize_index();
-    const Object object(10, 3.0644, -4.3024);
+    const IDType id = 10;
+    const Object object(id, -7.2436, 49.3024);
     std::vector<Lock> current_locks;
     bool from_regrid = false;
 
@@ -160,6 +161,14 @@ TEST_F(UnitTestWaffleIndexManager, insertion)
     EXPECT_EQ(Waffle::WaffleMaker_insert_num, 1);
     EXPECT_GT(Waffle::WaffleMaker_insert_time, 0);
 
+    for (IDType i = 0; i < index->get_num_total_objects(); i++) {
+        if (i == id) {
+            EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(1, 14));
+        } else {
+            EXPECT_EQ(index->get_cell_coordinate(i), std::make_pair(INTEGER_MAX, INTEGER_MAX));
+        }
+    }
+
     delete index;
 }
 
@@ -172,9 +181,10 @@ TEST_F(UnitTestWaffleIndexManager, insertionIntoTheSameCoordinate)
 
     const double object_lat = -9.9999;
     const double object_lon = 99.9999;
-    for (int id = 0; id < num_total_objects; id++) {
+    for (IDType id = 0; id < num_total_objects; id++) {
         const Object object(id, object_lat, object_lon);
         EXPECT_EQ(index->insertion(object, current_locks, from_regrid), true);
+        EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(0, 19));
     }
 
     delete index;
@@ -187,20 +197,24 @@ TEST_F(UnitTestWaffleIndexManager, insertionHasLockAlready)
     current_locks.emplace_back(ORIGINAL_INDEX, 40, EXCLUSIVE_LOCK);
     bool from_regrid = false;
 
-    const Object object(0, 9.9999, -99.9999);
+    const IDType id = 0;
+    const Object object(id, 9.9999, -99.9999);
     EXPECT_EQ(current_locks.size(), 1);
     EXPECT_EQ(index->insertion(object, current_locks, from_regrid), true);
+    EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(9, 0));
     EXPECT_EQ(current_locks.size(), 1);
 }
 
 TEST_F(UnitTestWaffleIndexManager, deletionFromSingleObject)
 {
     WaffleIndexManager* index = initialize_index();
-    const Object object(10, 3.0644, -4.3024);
+    const IDType id = 10;
+    const Object object(id, 4.3291, -53.9098);
     std::vector<Lock> current_locks;
     bool from_regrid = false;
 
     EXPECT_EQ(index->insertion(object, current_locks, from_regrid), true);
+    EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(7, 4));
 
     Waffle::user_deletion_num = 0;
     Waffle::user_deletion_time = 0;
@@ -210,6 +224,7 @@ TEST_F(UnitTestWaffleIndexManager, deletionFromSingleObject)
     Waffle::WaffleMaker_delete_time = 0;
 
     EXPECT_EQ(index->deletion(object, current_locks, from_regrid), true);
+    EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(INTEGER_MAX, INTEGER_MAX));
 
     EXPECT_EQ(Waffle::user_deletion_num, 1);
     EXPECT_GT(Waffle::user_deletion_time, 0);
@@ -229,9 +244,10 @@ TEST_F(UnitTestWaffleIndexManager, deletionFromMultipleObjects)
 
     const double object_lat = -9.9999;
     const double object_lon = 99.9999;
-    for (int id = 0; id < 9; id++) {
+    for (IDType id = 0; id < 9; id++) {
         const Object object(id, object_lat, object_lon);
         EXPECT_EQ(index->insertion(object, current_locks, from_regrid), true);
+        EXPECT_EQ(index->get_cell_coordinate(id), std::make_pair(0, 19));
     }
 
     Chunk* chunk_start1 = index->chunks[18];
@@ -246,6 +262,7 @@ TEST_F(UnitTestWaffleIndexManager, deletionFromMultipleObjects)
 
     const Object object(4, object_lat, object_lon);
     EXPECT_EQ(index->deletion(object, current_locks, from_regrid), true);
+    EXPECT_EQ(index->get_cell_coordinate(4), std::make_pair(INTEGER_MAX, INTEGER_MAX));
 
     Chunk* chunk_start2 = index->chunks[18];
     Chunk* chunk_end2 = index->chunks[19];

@@ -145,10 +145,11 @@ bool TransactionManager::process_insertion_query(const IDType object_ID, const d
         original_index->set_internal_parameters(n_lat, n_lon, n_lat, n_lon);
     }
 
-    if (original_index->ID_cell[object_ID].first != INTEGER_MAX)
+    const auto& original_coordinate = original_index->get_cell_coordinate(object_ID);;
+    if (original_coordinate.first != INTEGER_MAX)
     {
-        const int old_cell_lat = original_index->ID_cell[object_ID].first;
-        const int old_cell_lon = original_index->ID_cell[object_ID].second;
+        const int old_cell_lat = original_coordinate.first;
+        const int old_cell_lon = original_coordinate.second;
 
         Object new_object(object_ID, n_lat, n_lon);
         if (!during_regrid)
@@ -180,10 +181,11 @@ bool TransactionManager::process_insertion_query(const IDType object_ID, const d
         }
         else
         {
-            if (new_index->ID_cell[object_ID].first != INTEGER_MAX)
+            const auto& new_coordinate = new_index->get_cell_coordinate(object_ID);
+            if (new_coordinate.first != INTEGER_MAX)
             {
-                int old_cell_lat = new_index->ID_cell[object_ID].first;
-                int old_cell_lon = new_index->ID_cell[object_ID].second;
+                int old_cell_lat = new_coordinate.first;
+                int old_cell_lon = new_coordinate.second;
 
                 Transaction tx(original_index, new_index);
                 tx.deletion(NEW_INDEX, object_ID, old_cell_lat, old_cell_lon, false);
@@ -209,10 +211,11 @@ bool TransactionManager::process_deletion_query(const IDType object_ID, WaffleIn
                                                 WaffleIndexManager *&new_index, const bool during_regrid)
 {
     Waffle::current_object_num--;
-    if (original_index->ID_cell[object_ID].first != INTEGER_MAX)
+    const auto& original_coordinate = original_index->get_cell_coordinate(object_ID);
+    if (original_coordinate.first != INTEGER_MAX)
     {
-        int cell_lat = original_index->ID_cell[object_ID].first;
-        int cell_lon = original_index->ID_cell[object_ID].second;
+        int cell_lat = original_coordinate.first;
+        int cell_lon = original_coordinate.second;
 
         Transaction tx(original_index, new_index);
         tx.deletion(ORIGINAL_INDEX, object_ID, cell_lat, cell_lon, false);
@@ -222,10 +225,11 @@ bool TransactionManager::process_deletion_query(const IDType object_ID, WaffleIn
     {
         if (during_regrid)
         {
-            if (new_index->ID_cell[object_ID].first != INTEGER_MAX)
+            const auto& new_coordinate = new_index->get_cell_coordinate(object_ID);
+            if (new_coordinate.first != INTEGER_MAX)
             {
-                int cell_lat = new_index->ID_cell[object_ID].first;
-                int cell_lon = new_index->ID_cell[object_ID].second;
+                int cell_lat = new_coordinate.first;
+                int cell_lon = new_coordinate.second;
 
                 Transaction tx(original_index, new_index);
                 tx.deletion(NEW_INDEX, object_ID, cell_lat, cell_lon, false);

@@ -4,7 +4,6 @@
 #include "Chunk.h"
 #include <iostream>
 #include <set>
-#include <tbb/concurrent_vector.h>
 #include <unordered_set>
 #include <gtest/gtest_prod.h>
 
@@ -45,8 +44,9 @@ class WaffleIndexManager
     std::atomic<unsigned> num_chunks;
     std::atomic<unsigned> memory_one_chunk;
 
-    tbb::concurrent_vector<cellCoordinate> ID_cell;
     Chunk **chunks;
+
+    CellCoordinate get_cell_coordinate(IDType ID) const;
 
   private:
     FRIEND_TEST(UnitTestWaffleIndexManager, WaffleIndexManager);
@@ -86,6 +86,8 @@ class WaffleIndexManager
                                     std::priority_queue<kNN_q_member, std::vector<kNN_q_member>, compare_kNN> &q) const;
 
     bool is_empty_cell(int cell_lat, int cell_lon) const;
+
+    CellCoordinate* ID_cell;
 };
 
 #endif
