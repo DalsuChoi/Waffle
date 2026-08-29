@@ -14,11 +14,6 @@ Waffle optimizes a Waffle index by tuning five configuration knobs while targeti
 
 <hr>
 
-### Demo Video
-{% include youtube.html id="Iy4E7H15J7U" %}
-
-<hr>
-
 ### Source Codes
 - [Waffle](https://github.com/DalsuChoi/Waffle/tree/main/source_codes/Waffle)
 - [Waffle interface](https://github.com/DalsuChoi/Waffle/tree/main/source_codes/Waffle_interface)
